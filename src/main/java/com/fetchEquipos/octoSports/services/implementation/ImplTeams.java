@@ -10,6 +10,7 @@ import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -32,6 +33,8 @@ public class ImplTeams implements ITeams {
     private Gson gson;
     private final TransactionTemplate transactionTemplate;
     private final RepositoryTeam repositoryTeam;
+    private final KafkaTemplate<String,Boolean> kafkaTemplate;
+
 
     @Override
     public TeamsDto fetch(String url) {
@@ -62,6 +65,7 @@ public class ImplTeams implements ITeams {
                 .toList();
 
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        sendStatus("fetchAllTeams-Topic",Boolean.TRUE);
     }
 
     @Async
@@ -78,5 +82,9 @@ public class ImplTeams implements ITeams {
         } else {
             repositoryTeam.save(teamDto);
         }
+    }
+
+    private void sendStatus(String nameTopic,Boolean status){
+        kafkaTemplate.send(nameTopic,status);
     }
 }
