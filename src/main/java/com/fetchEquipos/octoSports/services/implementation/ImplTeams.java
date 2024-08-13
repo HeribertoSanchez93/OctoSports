@@ -1,5 +1,8 @@
 package com.fetchEquipos.octoSports.services.implementation;
 
+import com.fetchEquipos.octoSports.config.ConfigApiKey;
+import com.fetchEquipos.octoSports.consts.Constant;
+import com.fetchEquipos.octoSports.models.ResponseTeam;
 import com.fetchEquipos.octoSports.models.TeamDto;
 import com.fetchEquipos.octoSports.models.TeamsDto;
 import com.fetchEquipos.octoSports.repository.interfaces.RepositoryTeam;
@@ -34,50 +37,58 @@ public class ImplTeams implements ITeams {
     private final TransactionTemplate transactionTemplate;
     private final RepositoryTeam repositoryTeam;
     private final KafkaTemplate<String,Boolean> kafkaTemplate;
+    private final ConfigApiKey configApiKey;
 
 
     @Override
-    public TeamsDto fetch(String url) {
-        TeamsDto teams = null;
+    public List<TeamsDto> fetch(String url) {
+        ResponseTeam teams = null;
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
+                .header("x-rapidapi-host", Constant.XRAPIDAPIHOST)
+                .header("x-rapidapi-key", configApiKey.getApiKey())
                 .build();
 
         try (HttpClient client = HttpClient.newHttpClient()) {
             HttpResponse<String> responseApi = client.send(request, HttpResponse.BodyHandlers.ofString());
 
-            Type listType = new TypeToken<TeamsDto>() {
+            Type listType = new TypeToken<ResponseTeam>() {
             }.getType();
             teams = gson.fromJson(responseApi.body(), listType);
 
         } catch (Exception e) {
             System.out.println(e.getMessage());
         }
-        return teams;
+        return teams!=null ? teams.getTeams():null;
     }
 
 
     @Override
-    public void saveOrUpdateAll(TeamsDto teamFetch) {
-        List<CompletableFuture<Void>> futures = teamFetch.getTeams()
-                .stream()
-                .map(teamDto -> CompletableFuture.runAsync(() -> saveOrUpdateTeam(teamDto)))
-                .toList();
+    public void saveOrUpdateAll(List<TeamsDto> teamFetch) {
+        if(teamFetch!=null)
+        {
+            List<CompletableFuture<Void>> futures = teamFetch
+                    .stream()
+                    .map(teamDto -> CompletableFuture.runAsync(() -> saveOrUpdateTeam(teamDto)))
+                    .toList();
 
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-        sendStatus("fetchAllTeams-Topic",Boolean.TRUE);
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+            sendStatus("fetchAllTeams-Topic",Boolean.TRUE);
+        }
+
     }
 
     @Async
     @Transactional
-    private void saveOrUpdateTeam(TeamDto teamDto) {
+    private void saveOrUpdateTeam(TeamsDto teamsDto) {
+        TeamDto teamDto = teamsDto.getTeam();
         Optional<TeamDto> existingTeam = Optional.ofNullable(repositoryTeam.findByIdTeam(teamDto.getIdTeam()));
         if (existingTeam.isPresent()) {
             TeamDto update = existingTeam.get();
             update.setIdTeam(teamDto.getIdTeam());
             update.setNameTeam(teamDto.getNameTeam());
             update.setCountry(teamDto.getCountry());
-            update.setCountry(teamDto.getCountry());
+            update.setCode(teamDto.getCode());
             repositoryTeam.save(update);
         } else {
             repositoryTeam.save(teamDto);

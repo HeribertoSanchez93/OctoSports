@@ -15,14 +15,17 @@ public class TeamDto {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long idDataBase;
 
-    @SerializedName("idTeam")
+    @SerializedName("id")
     private Long idTeam;
 
-    @SerializedName("strTeam")
+    @SerializedName("code")
+    private String code;
+
+    @SerializedName("name")
     private String nameTeam;
 
-    @SerializedName("strCountry")
+    @SerializedName("country")
     private String country;
 }
