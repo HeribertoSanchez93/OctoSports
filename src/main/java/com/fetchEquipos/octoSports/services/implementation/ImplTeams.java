@@ -6,6 +6,7 @@ import com.fetchEquipos.octoSports.models.ResponseTeam;
 import com.fetchEquipos.octoSports.models.TeamDto;
 import com.fetchEquipos.octoSports.models.TeamsDto;
 import com.fetchEquipos.octoSports.repository.interfaces.RepositoryTeam;
+import com.fetchEquipos.octoSports.services.interfaces.IFetchUrl;
 import com.fetchEquipos.octoSports.services.interfaces.ITeams;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -33,33 +34,18 @@ import java.util.concurrent.CompletableFuture;
 @Builder
 public class ImplTeams implements ITeams {
 
-    private Gson gson;
     private final TransactionTemplate transactionTemplate;
     private final RepositoryTeam repositoryTeam;
     private final KafkaTemplate<String,Boolean> kafkaTemplate;
-    private final ConfigApiKey configApiKey;
+    private final IFetchUrl<ResponseTeam> fetchUrl;
 
 
     @Override
     public List<TeamsDto> fetch(String url) {
-        ResponseTeam teams = null;
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .header("x-rapidapi-host", Constant.XRAPIDAPIHOST)
-                .header("x-rapidapi-key", configApiKey.getApiKey())
-                .build();
-
-        try (HttpClient client = HttpClient.newHttpClient()) {
-            HttpResponse<String> responseApi = client.send(request, HttpResponse.BodyHandlers.ofString());
-
-            Type listType = new TypeToken<ResponseTeam>() {
-            }.getType();
-            teams = gson.fromJson(responseApi.body(), listType);
-
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
-        }
-        return teams!=null ? teams.getTeams():null;
+        Type type = new TypeToken<ResponseTeam>() {
+        }.getType();
+        ResponseTeam responseTeam = fetchUrl.fetch(url, type);
+        return responseTeam !=null ? responseTeam.getTeams():null;
     }
 
 
